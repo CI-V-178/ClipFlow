@@ -1,5 +1,13 @@
-.DS_Store
-node_modules/
+# Node / build
+node_modules
+dist
+out
+.eslintcache
+*.log*
+
+# Python (legacy)
 .venv/
 __pycache__/
-*.log
+
+# OS
+.DS_Store

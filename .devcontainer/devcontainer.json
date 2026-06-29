@@ -1,0 +1,63 @@
+{
+  // ClipFlow MVP (Next.js + pnpm) 開発コンテナ
+  // Windows(WSL2) / macOS / GitHub Codespaces(VS Code Web) で同一環境を再現する。
+  // 配置先: リポジトリ直下の .devcontainer/devcontainer.json
+  "name": "ClipFlow MVP (Next.js)",
+
+  // Node 24 LTS 入りの公式 Dev Container イメージ。
+  // OS に依存せずコンテナ内 Linux で統一する。
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm",
+
+  "features": {
+    // git は最新版を入れておく（イメージ同梱版でも可だが明示）
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  // Next.js dev サーバ
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js dev",
+      "onAutoForward": "openPreview"
+    }
+  },
+
+  // node_modules はバインドマウントせず名前付きボリュームに置く。
+  // → macOS / Windows のホストFSマウントの遅さを回避し、I/O を高速化する。
+  "mounts": [
+    "source=clipflow-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+  ],
+
+  // ボリュームは初期状態 root 所有なので node ユーザーに渡す
+  "onCreateCommand": "sudo chown -R node:node ${containerWorkspaceFolder}/node_modules",
+
+  // pnpm を corepack で有効化し、依存をインストール。
+  // lockfile があれば frozen、なければ通常 install。package.json 未作成でもエラーで止めない。
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@latest --activate && (test -f package.json && (test -f pnpm-lock.yaml && pnpm install --frozen-lockfile || pnpm install) || echo 'package.json なし: pnpm create next-app 等で初期化してください')",
+
+  "remoteUser": "node",
+
+  "remoteEnv": {
+    "NODE_ENV": "development"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}
