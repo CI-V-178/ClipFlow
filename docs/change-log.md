@@ -1,5 +1,27 @@
 # 変更ログ
 
+## 2026-07-01: Electron 資材の削除（Next.js 作り直しに伴う整理）
+
+### 概要
+アプリを Next.js (Web) 構成へ作り直す方針（`reCreateApp` ブランチ）に伴い、旧構成である Electron 関連資材を一括削除しました。Next.js アプリ本体（`app/` `components/` `lib/` `hooks/` `types/`）は既に Electron 資材から分離されており（`tsconfig.json` の `exclude` 済み）、削除後も型検査・Lint に影響がないことを確認済みです。
+
+### 実施内容
+- **削除した資材**
+  - Electron ソース: `src/`（`main/` `preload/` `renderer/`）
+  - パッケージング資材: `build/`（`icon.icns/.ico/.png`, `entitlements.mac.plist`）, `resources/icon.png`
+  - ビルド設定: `electron-builder.yml`, `electron.vite.config.ts`, `tsconfig.node.json`, `tsconfig.web.json`
+  - デバッグ設定: `.vscode/launch.json`（electron-vite 用）
+  - ビルド成果物: `out/main/`, `out/preload/`
+- **修正した資材**
+  - `tsconfig.json`: `exclude` から不要になった `src`/`out`/`build`/`electron.vite.config.ts` を除去
+  - `pnpm-lock.yaml`: `pnpm install` で再生成し、`electron-builder`/`electron-vite`/`vite` 等を依存グラフから除去
+- **検証**: `pnpm typecheck` ✅ / `pnpm lint` ✅
+
+### 未対応（今後の対応事項）
+- `README.md` の「An Electron application with React and TypeScript」の記述が現状と矛盾（更新未実施）
+- `AGENTS.md` / `CLAUDE.md` に PRIDEV-272（Electron 基盤構築）の実装履歴が残存（履歴ログとして保持）
+- 変更は未コミット（人間のレビュー後にステージ済み内容をコミット予定）
+
 ## 2026-06-07: 【PRIDEV-272】 プロジェクト基盤の構築 (Electron + React)
 
 ### 概要
