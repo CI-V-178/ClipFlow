@@ -46,8 +46,12 @@ export function createGeminiClient(config: GeminiClientConfig): GeminiClient {
       const result = await model.generateContent(prompt);
       return result.response.text();
     } catch (err) {
+      // 原因切り分けのため、SDK/HTTP の実エラー内容を必ず表面化する。
+      // 例: "[404] models/xxx is not found" / "[400] API key not valid"
+      console.error("Gemini generateContent failed:", err);
+      const detail = err instanceof Error ? err.message : String(err);
       throw new GeminiError(
-        "Gemini API リクエストに失敗しました。APIキー・モデル名・通信状況を確認してください。",
+        `Gemini API リクエストに失敗しました: ${detail}（APIキー・モデル名・通信状況を確認してください）`,
         err
       );
     }
@@ -74,4 +78,22 @@ export function createGeminiClient(config: GeminiClientConfig): GeminiClient {
   }
 
   return { generateContent, analyzeTranscript };
+}
+
+/**
+ * 導通確認: 設定中の API キー・モデルで generateContent を1回だけ実行し、
+ * 実際に生成処理が行えるかを検証する。成功時は解決、失敗時は GeminiError を投げる。
+ * キー・モデル・通信のいずれに問題があっても generateContent 側で GeminiError 化される。
+ */
+export async function testGeminiConnection(
+  config: GeminiClientConfig
+): Promise<void> {
+  const client = createGeminiClient(config);
+  // トークン消費を抑えるための最小プロンプト。応答内容自体は問わない。
+  const text = await client.generateContent("ping");
+  if (!text || text.trim() === "") {
+    throw new GeminiError(
+      "API から空の応答が返りました。モデル設定を確認してください。"
+    );
+  }
 }

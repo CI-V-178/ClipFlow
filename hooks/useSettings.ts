@@ -5,6 +5,9 @@ import type { ApiKeys } from "@/types";
 
 const API_KEYS_STORAGE_KEY = "clipflow-api-keys";
 const MODEL_CONFIG_STORAGE_KEY = "clipflow-model-config";
+// 「モデルが最新かチェック」で検出し、ユーザーが select に追加したモデル ID。
+// 静的な GEMINI_MODELS はソースコードのため、実行時に追加した分はここへ永続化する。
+const CUSTOM_MODELS_STORAGE_KEY = "clipflow-custom-models";
 
 type ApiKeyName = keyof ApiKeys;
 
@@ -13,15 +16,19 @@ export interface ModelConfig {
 }
 
 // 利用可能な Gemini モデル
+// 出典: https://ai.google.dev/gemini-api/docs/models (最終確認 2026-07-02)
+// 注意: Gemini 2.0 / 1.5 系は既に公式でシャットダウン済みのため掲載しない。
+//       プレビュー版 (gemini-3.1-pro-preview 等) は ID が変動/消滅しうるため安定運用の観点で除外。
 export const GEMINI_MODELS = [
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (推奨)" },
-  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite" },
-  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
-  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash (推奨)" },
+  { id: "gemini-3.1-flash-lite", name: "Gemini 3.1 Flash Lite" },
+  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+  { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite" },
 ];
 
 export const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  gemini: "gemini-2.0-flash",
+  gemini: "gemini-3.5-flash",
 };
 
 interface UseSettingsReturn {
@@ -32,8 +39,14 @@ interface UseSettingsReturn {
   hasKey: (key: ApiKeyName) => boolean;
   modelConfig: ModelConfig;
   setModelConfig: (config: ModelConfig) => void;
+  /** ユーザーが追加したモデル ID（静的 GEMINI_MODELS には含まれない） */
+  customModels: string[];
+  /** 検出した新規モデルを select に追加する（重複・静的リスト掲載済みは無視） */
+  addCustomModel: (id: string) => void;
   isLoaded: boolean;
 }
+
+const STATIC_MODEL_IDS = new Set(GEMINI_MODELS.map((m) => m.id));
 
 /**
  * LocalStorage を使用した設定管理フック (Issue #5)
@@ -42,6 +55,7 @@ interface UseSettingsReturn {
 export function useSettings(): UseSettingsReturn {
   const [apiKeys, setApiKeys] = useState<ApiKeys>({});
   const [modelConfig, setModelConfigState] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG);
+  const [customModels, setCustomModels] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -55,6 +69,15 @@ export function useSettings(): UseSettingsReturn {
 
       const storedModel = localStorage.getItem(MODEL_CONFIG_STORAGE_KEY);
       if (storedModel) setModelConfigState(JSON.parse(storedModel) as ModelConfig);
+
+      const storedCustom = localStorage.getItem(CUSTOM_MODELS_STORAGE_KEY);
+      if (storedCustom) {
+        const parsed = JSON.parse(storedCustom) as string[];
+        // 静的リストに後から取り込まれた ID は重複するため除外する。
+        if (Array.isArray(parsed)) {
+          setCustomModels(parsed.filter((id) => !STATIC_MODEL_IDS.has(id)));
+        }
+      }
     } catch (error) {
       console.error("Failed to load settings from localStorage:", error);
     } finally {
@@ -118,6 +141,23 @@ export function useSettings(): UseSettingsReturn {
     }
   }, []);
 
+  const addCustomModel = useCallback((id: string) => {
+    const trimmed = id.trim();
+    if (trimmed === "" || STATIC_MODEL_IDS.has(trimmed)) return;
+    setCustomModels((prev) => {
+      if (prev.includes(trimmed)) return prev;
+      const updated = [...prev, trimmed];
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(CUSTOM_MODELS_STORAGE_KEY, JSON.stringify(updated));
+        } catch (error) {
+          console.error("Failed to save custom models to localStorage:", error);
+        }
+      }
+      return updated;
+    });
+  }, []);
+
   return {
     apiKeys,
     setApiKey,
@@ -126,6 +166,8 @@ export function useSettings(): UseSettingsReturn {
     hasKey,
     modelConfig,
     setModelConfig,
+    customModels,
+    addCustomModel,
     isLoaded,
   };
 }
