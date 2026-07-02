@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { ApiKeys } from "@/types";
+import { loadVersioned, saveVersioned } from "@/lib/versioned-storage";
 
 const API_KEYS_STORAGE_KEY = "clipflow-api-keys";
 const MODEL_CONFIG_STORAGE_KEY = "clipflow-model-config";
@@ -62,37 +63,26 @@ export function useSettings(): UseSettingsReturn {
     if (typeof window === "undefined") return;
     // マウント時に LocalStorage(外部ストア) から状態をハイドレーションする正当な同期処理。
     // SSR とのハイドレーション不整合を避けるため effect 内で読む必要がある。
+    // 読込は loadVersioned 経由: スキーマバージョン不一致・破損データは
+    // 安全に破棄され、各既定値へフォールバックする（陳腐化ガード）。
     /* eslint-disable react-hooks/set-state-in-effect */
-    try {
-      const storedKeys = localStorage.getItem(API_KEYS_STORAGE_KEY);
-      if (storedKeys) setApiKeys(JSON.parse(storedKeys) as ApiKeys);
-
-      const storedModel = localStorage.getItem(MODEL_CONFIG_STORAGE_KEY);
-      if (storedModel) setModelConfigState(JSON.parse(storedModel) as ModelConfig);
-
-      const storedCustom = localStorage.getItem(CUSTOM_MODELS_STORAGE_KEY);
-      if (storedCustom) {
-        const parsed = JSON.parse(storedCustom) as string[];
-        // 静的リストに後から取り込まれた ID は重複するため除外する。
-        if (Array.isArray(parsed)) {
-          setCustomModels(parsed.filter((id) => !STATIC_MODEL_IDS.has(id)));
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load settings from localStorage:", error);
-    } finally {
-      setIsLoaded(true);
-    }
+    setApiKeys(loadVersioned<ApiKeys>(API_KEYS_STORAGE_KEY, {}));
+    setModelConfigState(
+      loadVersioned<ModelConfig>(MODEL_CONFIG_STORAGE_KEY, DEFAULT_MODEL_CONFIG)
+    );
+    const storedCustom = loadVersioned<string[]>(CUSTOM_MODELS_STORAGE_KEY, []);
+    // 静的リストに後から取り込まれた ID は重複するため除外する。
+    setCustomModels(
+      Array.isArray(storedCustom)
+        ? storedCustom.filter((id) => !STATIC_MODEL_IDS.has(id))
+        : []
+    );
+    setIsLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const saveApiKeysToStorage = useCallback((keys: ApiKeys) => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify(keys));
-    } catch (error) {
-      console.error("Failed to save API keys to localStorage:", error);
-    }
+    saveVersioned(API_KEYS_STORAGE_KEY, keys);
   }, []);
 
   const setApiKey = useCallback(
@@ -132,13 +122,7 @@ export function useSettings(): UseSettingsReturn {
 
   const setModelConfig = useCallback((config: ModelConfig) => {
     setModelConfigState(config);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(MODEL_CONFIG_STORAGE_KEY, JSON.stringify(config));
-      } catch (error) {
-        console.error("Failed to save model config to localStorage:", error);
-      }
-    }
+    saveVersioned(MODEL_CONFIG_STORAGE_KEY, config);
   }, []);
 
   const addCustomModel = useCallback((id: string) => {
@@ -147,13 +131,7 @@ export function useSettings(): UseSettingsReturn {
     setCustomModels((prev) => {
       if (prev.includes(trimmed)) return prev;
       const updated = [...prev, trimmed];
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(CUSTOM_MODELS_STORAGE_KEY, JSON.stringify(updated));
-        } catch (error) {
-          console.error("Failed to save custom models to localStorage:", error);
-        }
-      }
+      saveVersioned(CUSTOM_MODELS_STORAGE_KEY, updated);
       return updated;
     });
   }, []);

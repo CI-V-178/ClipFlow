@@ -1,13 +1,31 @@
-# Node / build
+# Node / dependencies
 node_modules
 dist
 out
 .eslintcache
 *.log*
 
+# Next.js
+.next
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
+
+# Env (keep .env.example committed)
+.env
+.env*.local
+
+# Vercel
+.vercel
+
+# Testing
+/coverage
+
 # Python (legacy)
 .venv/
 __pycache__/
 
-# OS
+# OS / misc
 .DS_Store
+*.pem

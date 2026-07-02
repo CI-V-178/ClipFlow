@@ -100,7 +100,9 @@ export default function HomePage() {
         <CardHeader>
           <CardTitle>書き起こしを入力</CardTitle>
           <CardDescription>
-            動画の文字起こし（タイムスタンプ付きでも可）を貼り付けてください。
+            動画の文字起こし（タイムスタンプ付きでも可）を貼り付けてください。<br/>
+            文字起こしは <a href="https://yt-marker.com/" className="underline"> YT-Maker </a> などを使ってください
+            <p>(現在文字起こし機能は未実装です)</p>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

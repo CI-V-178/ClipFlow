@@ -7,3 +7,8 @@ export {
   checkGeminiModelFreshness,
 } from "./gemini-models";
 export type { ModelCheckResult } from "./gemini-models";
+export {
+  loadVersioned,
+  saveVersioned,
+  SETTINGS_SCHEMA_VERSION,
+} from "./versioned-storage";
